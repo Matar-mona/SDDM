@@ -1,13 +1,6 @@
 import csv
 from sklearn.decomposition import NMF, LatentDirichletAllocation
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
-import re
-import urllib.parse
-from collections import Counter
-import wikipedia as wiki
-import pprint as pp
-from Labels import Labels
-
 
 class Models:
 
