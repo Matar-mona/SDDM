@@ -2,14 +2,11 @@ from Labels import Labels
 from models import Models
 import pandas as pd
 import re
-from nltk.stem.snowball import SnowballStemmer
 from nltk.corpus import stopwords
 import string
-import scipy
 import sqlite3
-import json
 from time import time
-
+import eventregistry as ER
 """
  ############  READ ME ##############
 
@@ -169,15 +166,26 @@ class Preprocess_Main:
             else:
                 docs[key] = documents
 
-            mm = Models(5, 10, **docs)
+            mm = Models(50, 10, **docs)
             terms_to_wiki = mm.calling_methods('LDA')
             ll = Labels(terms_to_wiki)
             wiki_titles = ll.get_titles_wiki()
             equal_length = ll.remove_all_null_dicts_returned_from_wiki(**wiki_titles)
             frq = ll.calculating_word_frequency(**equal_length)
             results = ll.predicting_label(**frq)
+            l = []
+            for i in range(len(results)):
+                er = ER.EventRegistry(apiKey='32db7607-6c90-40bd-b653-e167da1462c9')
+                analytics = ER.Analytics(er)
+                cat = analytics.categorize(results[i][1])
+                for k, v in cat.items():
+                    if k == 'categories':
+                        for y, value in v[0].items():
+                            if y == 'label':
+                                l.append(value.split('/')[2])
 
-            print(key, results)
+            print('\n')
+            print(key, l)
         print('########### FINAL FILE EXECUTED ##################')
 
 
