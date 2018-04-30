@@ -1,0 +1,20 @@
+HOW TO GUIDE
+
+#1.save unique words in a vector that holds the indexes for the words for the 5000 users
+
+HASH CODE: [ Hi,I,Want,.....]
+Index      [0,1,2,3....]
+
+
+Data Mining txt Format => 5000 rows having Indexing Positions for users + Output vector
+1.[100,5] -> [...]
+2.[5,10,2000,2550] -> [Tennis]
+etc...
+
+
+#2.implement 10 fold cross validation using k-nearest neigbor
+	-advantage of this is to test if model can work without using wikipedia which takes a lot of time to search
+	-each user has a prediction vector of topics. if 1 topic of this vector matches 1 topic in the validation vector than this is a HIT. 
+	-if vector matches completely this is a FIT. 
+	-HIT's are more likely than FIT's 
+

@@ -7,37 +7,36 @@ import string
 import sqlite3
 from time import time
 import eventregistry as ER
+import itertools
 """
  ############  READ ME ##############
-
 Topic tree generation is in 2 parts:
 1. We determine patterns in the users tweets using topic modeling 
 2. Using disambiguity in wiki and the first two hierarchies in DMOZ to build the topic tree model deserved 
-
 The code below is just implementation of the topic modeling and generating the patterns which is stored in csv file 
 and later used in wiki and DMOZ. It takes only 3 mins to run on the 28 million rows 
-
 We have 3 functions in the code: 
 1. db() : this is a databsed used to stored large number of cleaned tweets since we cannot use pickle to serialize(only 
 used on small datasets). We then read directly these values into pandas tables. The main reason for working with pandas
 is to avoid loops which slows down the program.
-
 2. create_dict() : transforms pandas table data into dictionary which is passed to the 3 function. It takes approximately
 22 mins to execute. When done it stored in a pickle file which can be used instead of executing the whole process again.
-
 3. creating_dataframe(): is a bad choice of function name but all is does is take the dictionary in step 2 apply 
 all preprocessing steps(stopwords, stemming, etc) required for implementing the topic models. Then passed to the models 
-to generate the patterns in documents. 
-
+to generate the patterns in self.userTweets. 
 Two models are being useed here the LDA and NMF. I did this to check which one actually gives a good pattern recognition
 to texts. The output is then read on to a csv file which can be used to building the topic tree
-
-
-
 """
 
 
 class Preprocess_Main:
+
+    allWordsFromUsers = []
+    allWordsFromUsersJoined = []
+    noneDuplicateWordsUsedFromAllUsers = []
+    userTweets = []
+    userTopicLabels = []
+    userWordIndexes = []
 
     regex_str = [
         r'<[^>]+>',  # HTML tags
@@ -74,7 +73,7 @@ class Preprocess_Main:
         # Create table
         # c.execute('''CREATE TABLE twitter (user_id text, tweets text)''')
         counter = 0
-        # with open('/Users/jeremyjohnson/Documents/gate.csv', encoding='ISO-8859-1') as f:
+        # with open('/Users/jeremyjohnson/self.userTweets/gate.csv', encoding='ISO-8859-1') as f:
         #     cv = csv.reader(f, delimiter='\t', quoting=csv.QUOTE_NONE)
         #     for i in cv:
         #         # if counter <= 10:
@@ -132,7 +131,7 @@ class Preprocess_Main:
     def creating_dataframe(self, dictionary):
         final_words = []
         final_words1 = []
-        documents = []
+        
         l = []
         z = []
         docs ={}
@@ -159,19 +158,40 @@ class Preprocess_Main:
             df_ = df_.apply(lambda x: re.sub(r' +', ' ', x))
             [final_words.append("".join(i).strip().split()) for i in df_]
             [final_words1.append(i) for i in final_words if len(i) >= 5]
-            [documents.append(re.sub(r' +', " ", (' '.join(i)))) for i in final_words1]
+            [self.userTweets.append(re.sub(r' +', " ", (' '.join(i)))) for i in final_words1]
 
             if key in docs:
-                docs[key].append(documents)
+                docs[key].append(self.userTweets)
             else:
-                docs[key] = documents
+                docs[key] = self.userTweets
 
-            mm = Models(50, 10, **docs)
+            print(key,":",self.userTweets)
+            currentWordsByUser = []
+            for i in range(len(self.userTweets)):
+                tweetWords = self.userTweets[i].strip("'")
+                tweetWords = tweetWords.strip('"')
+                tweetWords = tweetWords.strip(",")
+
+                currentWordsByUser.append(list(set(str(tweetWords).split())))
+
+            uniqueWordsByUser = list(set(list(itertools.chain.from_iterable(currentWordsByUser))))
+            print("uniqueWordsByUser:",uniqueWordsByUser)
+            print("len(uniqueWordsByUser):",len(uniqueWordsByUser))
+            #append all unique words from each user to global word vector
+            self.allWordsFromUsers.append(uniqueWordsByUser)
+
+            ###
+            
+            mm = Models(50, 10, **docs)  #50,10
             terms_to_wiki = mm.calling_methods('LDA')
             ll = Labels(terms_to_wiki)
             wiki_titles = ll.get_titles_wiki()
             equal_length = ll.remove_all_null_dicts_returned_from_wiki(**wiki_titles)
             frq = ll.calculating_word_frequency(**equal_length)
+            #print(equal_length)
+            #print("------")
+            #print(frq)
+
             results = ll.predicting_label(**frq)
             l = []
             for i in range(len(results)):
@@ -184,9 +204,30 @@ class Preprocess_Main:
                             if y == 'label':
                                 l.append(value.split('/')[2])
 
-            print('\n')
-            print(key, l)
-        print('########### FINAL FILE EXECUTED ##################')
+            
+            self.userTopicLabels.append(l)
+            
+        print('########### FINAL FILE EXECUTED ##################')  
+        self.allWordsFromUsersJoined = list(itertools.chain.from_iterable(self.allWordsFromUsers))  #joined        
+        self.noneDuplicateWordsUsedFromAllUsers = list(set(self.allWordsFromUsersJoined))
+        self.allUsersIndexing()
+        self.savePreprocessedData()
 
 
-        # return docs
+    def allUsersIndexing(self):
+        for i in range(len(self.allWordsFromUsers)):
+            wordIndexes = []
+            for j in range(len(self.allWordsFromUsers[i])):
+                currentWord = str(self.allWordsFromUsers[i][j])
+                #print("currentWord:",currentWord)
+                for k in range(len(self.noneDuplicateWordsUsedFromAllUsers)):
+                    if currentWord == self.noneDuplicateWordsUsedFromAllUsers[k]:
+                        wordIndexes.append(k)
+            self.userWordIndexes.append(wordIndexes)
+                    
+
+    def savePreprocessedData(self):
+        with open('preprocessedData.txt', 'w') as preprocessed:
+            preprocessed.write(str(self.noneDuplicateWordsUsedFromAllUsers) + '\n' )
+            for i in range(len(self.userTopicLabels)):
+                preprocessed.write(str(self.userWordIndexes[i]) + ' ' + str(self.userTopicLabels[i]) + '\n' )
